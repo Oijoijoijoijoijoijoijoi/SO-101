@@ -1,18 +1,25 @@
 {
-    "name": "SO-101 Robotics Dev",
+    "name": "ESP32 micro-ROS Builder",
     "build": { "dockerfile": "Dockerfile" },
     "runArgs": [
         "--privileged",
-        "-v", "/dev:/dev",
-        "--net=host"
+        "-v", "/dev:/dev"
     ],
     "customizations": {
         "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "idf.espIdfPath": "/opt/esp/idf",
+                "idf.toolsPath": "/home/vscode/.espressif",
+                "idf.pythonBinPath": "/home/vscode/.espressif/python_env/idf5.3_py3.10_env/bin/python"
+            },
             "extensions": [
-                "platformio.platformio-ide",
+                "espressif.esp-idf-extension",
                 "ms-vscode.cpptools"
             ]
         }
     },
     "remoteUser": "vscode"
+    
+
 }
