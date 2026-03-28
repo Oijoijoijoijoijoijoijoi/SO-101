@@ -1,9 +1,17 @@
-.pio/
+# ESP-IDF Build Artifacts
+**/build/
+**/sdkconfig
+**/sdkconfig.old
+**/dependencies.lock
+
+# Managed Components
+**/managed_components/
+
+# Python Virtual Environments
+.venv/
+__pycache__/
+*.pyc
+
+# Local IDE configuration
 .vscode/
-.gcc-flags.json
-**/*.dn
-**/*.elf
-**/*.bin
-**/*.map
-node_modules/
-.DS_Store
+.idea/
