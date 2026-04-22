@@ -55,7 +55,10 @@ RUN /bin/bash -c "source $IDF_PATH/export.sh && \
     pyparsing \
     empy==3.3.4 \
     colcon-library-path \
-    colcon-mixin"
+    colcon-mixin \
+    colcon-common-extensions \
+    colcon-cmake \
+    colcon-ros"
 
 # 6. Environment & QOL Layer
 RUN echo 'source /opt/ros/jazzy/setup.bash' >> ~/.bashrc \

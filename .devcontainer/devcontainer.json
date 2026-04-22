@@ -26,7 +26,12 @@
             "extensions": [
                 "espressif.esp-idf-extension",
                 "ms-vscode.cpptools",
-                "ms-iot.vscode-ros"
+                "ms-iot.vscode-ros",
+                "ms-vscode.cmake-tools",
+                "usernamehw.errorlens",
+                "eamodio.gitlens",
+                "ms-python.python",
+                "xaver.clang-format"
             ]
         }
     },
