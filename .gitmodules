@@ -1,0 +1,5 @@
+[submodule "shared_components/micro_ros_espidf_component"]
+	path = shared_components/micro_ros_espidf_component
+	url = https://github.com/micro-ROS/micro_ros_espidf_component.git
+	ignore = untracked
+	branch = jazzy

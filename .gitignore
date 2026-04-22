@@ -1,17 +1,47 @@
+# ==========================================
 # ESP-IDF Build Artifacts
+# ==========================================
 **/build/
 **/sdkconfig
 **/sdkconfig.old
 **/dependencies.lock
 
-# Managed Components
+# ==========================================
+# ESP Component Manager
+# ==========================================
 **/managed_components/
 
-# Python Virtual Environments
+# ==========================================
+# Python Environments
+# ==========================================
 .venv/
 __pycache__/
 *.pyc
 
-# Local IDE configuration
+# ==========================================
+# IDE & Language Server Configuration
+# ==========================================
 .vscode/
 .idea/
+**/compile_commands.json
+
+# ==========================================
+# Ephemeral Binaries & Object Files
+# ==========================================
+*.o
+*.obj
+*.elf
+*.map
+*.bin
+*.a
+*.so
+
+# ==========================================
+# Host Operating System Metadata
+# ==========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini

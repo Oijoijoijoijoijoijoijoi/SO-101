@@ -1,8 +1,7 @@
-# 1. Base Layer (Immutable)
-FROM ros:humble-ros-base
+# 1. Base Layer: Official ROS 2 Jazzy (Ubuntu 24.04 Noble)
+FROM ros:jazzy-ros-base
 
-# 2. System Dependency Layer (Low Volatility)
-# Consolidates all binary requirements to minimize image layers.
+# 2. System Dependency Layer
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y \
     python3-pip python3-venv \
@@ -14,40 +13,52 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     python3-vcstool \
     && rm -rf /var/lib/apt/lists/*
 
-# 3. User Identity Layer (Static)
+# 3. User Identity Layer
+# Synchronizes UID/GID 1000 with the 'vscode' identity
 ARG USERNAME=vscode
 ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME
+ARG USER_GID=1000
 
-# 4. Toolchain Layer (High Latency / High Inertia)
-# We perform the heavy IDF installation before any volatile shell tweaks.
+RUN if getent passwd $USER_UID > /dev/null; then \
+        # UID exists: Rename user and update home directory
+        OLD_USER=$(getent passwd $USER_UID | cut -d: -f1); \
+        usermod -l $USERNAME $OLD_USER; \
+        usermod -d /home/$USERNAME -m $USERNAME; \
+    else \
+        useradd --uid $USER_UID -m $USERNAME; \
+    fi \
+    && if getent group $USER_GID > /dev/null; then \
+        # GID exists: Rename group to match $USERNAME
+        OLD_GROUP=$(getent group $USER_GID | cut -d: -f1); \
+        groupmod -n $USERNAME $OLD_GROUP; \
+    else \
+        groupadd --gid $USER_GID $USERNAME; \
+    fi \
+    && usermod -g $USERNAME $USERNAME \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
+# 4. ESP-IDF Toolchain Layer
 ENV IDF_PATH=/opt/esp/idf
-ENV CCACHE_DIR=/workspaces/SO-101/.ccache
-
 RUN mkdir -p /opt/esp && chown $USERNAME:$USERNAME /opt/esp
-USER $USERNAME
 
+USER $USERNAME
 RUN cd /opt/esp \
     && git clone --recursive --branch v5.3.1 https://github.com/espressif/esp-idf.git idf \
     && $IDF_PATH/install.sh all
 
-# 5. Middleware Injection Layer (Moderate Volatility)
-# This depends on the IDF installation but is independent of shell QOL.
+# 5. Middleware Injection Layer (Jazzy/micro-ROS requirements)
 RUN /bin/bash -c "source $IDF_PATH/export.sh && \
-    pip install catkin_pkg lark pyparsing empy==3.3.4"
+    pip install --no-cache-dir \
+    catkin_pkg \
+    lark \
+    pyparsing \
+    empy==3.3.4 \
+    colcon-library-path \
+    colcon-mixin"
 
-# 6. User Environment & QOL Layer (High Volatility)
-# This is at the end. Tweaking aliases or shell history will NOT trigger a re-clone of the IDF.
-# 6. User Environment & QOL Layer
-RUN mkdir -p ~/command_history
-
-# Use ~/ instead of /home/$USERNAME/ for runtime safety
-RUN echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc \
-    && echo 'if [ ! -d "~/command_history" ]; then mkdir -p ~/command_history; fi' >> ~/.bashrc \
-    && echo 'export HISTFILE=~/command_history/.bash_history' >> ~/.bashrc \
+# 6. Environment & QOL Layer
+RUN echo 'source /opt/ros/jazzy/setup.bash' >> ~/.bashrc \
     && echo "alias get_idf='. $IDF_PATH/export.sh'" >> ~/.bashrc \
     && echo "source $IDF_PATH/export.sh > /dev/null 2>&1" >> ~/.bashrc
 

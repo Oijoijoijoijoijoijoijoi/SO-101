@@ -1,9 +1,0 @@
-# Disable networking logic to stop header collisions
-CONFIG_ESP_WIFI_ENABLED=n
-CONFIG_ESP_MESH_ENABLED=n
-CONFIG_LWIP_ENABLE=n
-CONFIG_ESP_ERR_TO_NAME_LOOKUP=n
-
-# Real-time optimizations for 200 Hz
-CONFIG_FREERTOS_HZ=1000
-CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y

@@ -1,21 +1,11 @@
 {
-    "name": "ESP32 micro-ROS Builder Pro",
+    "name": "SO-101 ESP32 Jazzy Hub",
     "build": { "dockerfile": "Dockerfile" },
-    "runArgs": [
-        "--privileged",
-        "--network=host"
-    ],
-    "containerEnv": {
-        "DISPLAY": "${localEnv:DISPLAY}",
-        "PROMPT_COMMAND": "history -a",
-        "HISTFILE": "/home/vscode/command_history/.bash_history"
-    },
+    "runArgs": [ "--privileged", "--network=host" ],
     "mounts": [
         "source=/dev,target=/dev,type=bind",
-        // QOL: Persist bash history across container rebuilds
         "source=esp32-bash-history,target=/home/vscode/command_history,type=volume"
     ],
-    
     "customizations": {
         "vscode": {
             "settings": {
@@ -23,17 +13,15 @@
                 "idf.espIdfPath": "/opt/esp/idf",
                 "idf.toolsPath": "/home/vscode/.espressif",
                 "idf.pythonBinPath": "/home/vscode/.espressif/python_env/idf5.3_py3.10_env/bin/python",
-                "idf.ccacheEnable": true,
-                // QOL: Automatically source the IDF environment in the terminal
                 "terminal.integrated.env.linux": {
-                    "PYTHONPATH": "/opt/ros/humble/lib/python3.10/site-packages"
+                    "PYTHONPATH": "/opt/ros/jazzy/lib/python3.11/site-packages"
                 },
                 "C_Cpp.default.includePath": [
-                "${workspaceFolder}/**",
-                "/opt/esp/idf/components/**",
-                "${workspaceFolder}/esp32_firmware/components/micro_ros_espidf_component/micro_ros_src/install/include/**"
-                ],
-                "C_Cpp.default.compilerPath": "/home/vscode/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20240530/xtensa-esp-elf/bin/xtensa-esp32-elf-gcc"
+                    "${workspaceFolder}/**",
+                    "/opt/esp/idf/components/**",
+                    // Path to generated headers in the project build folder
+                    "${workspaceFolder}/**/build/muros_include/**"
+                ]
             },
             "extensions": [
                 "espressif.esp-idf-extension",
@@ -43,6 +31,5 @@
         }
     },
     "remoteUser": "vscode",
-    // QOL: Run a setup script or ensure permissions after creation
-    "postCreateCommand": "sudo chmod 666 /dev/ttyUSB* || true"
+    "postCreateCommand": "bash .devcontainer/init_workspace.sh"
 }
