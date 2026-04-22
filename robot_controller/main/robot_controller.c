@@ -50,29 +50,33 @@ void init_wifi_espnow(void) {
 }
 
 void app_main(void) {
-    init_wifi_espnow(); 
-    telemetry_data_t mock_data = { .sequence_id = 0 };
+    init_wifi_espnow();
+telemetry_data_t leader_data = { .origin_id = SOURCE_LEADER, .sequence_id = 0 };
+    telemetry_data_t follower_data = { .origin_id = SOURCE_FOLLOWER, .sequence_id = 0 };
     
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xFrequency = pdMS_TO_TICKS(20); // f = 50Hz, T = 20ms
+    const TickType_t xFrequency = pdMS_TO_TICKS(20); // 50Hz total cycle
 
     while(1) {
-        // Deterministic delay to prevent cumulative drift
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
+        uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
 
-        mock_data.sequence_id++;
-        for(int i = 0; i < 6; i++) {
-            mock_data.raw_positions[i] = 2048 + (i * 100); 
-        }
-        mock_data.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
-        
-        esp_now_send(gateway_mac, (uint8_t *)&mock_data, sizeof(mock_data));
+        // --- Dispatch Leader Data ---
+        leader_data.sequence_id++;
+        leader_data.timestamp_ms = now;
+        for(int i = 0; i < 6; i++) leader_data.raw_positions[i] = 2048 + (i * 100); 
+        esp_now_send(gateway_mac, (uint8_t *)&leader_data, sizeof(leader_data));
 
-        // Decimated Debug Print: Executes once per 50 cycles (1Hz)
-        if (mock_data.sequence_id % 200 == 0) {
-            ESP_LOGI(TAG, "Heartbeat: Packet %" PRIu32 " dispatched at %" PRIu32 " ms", 
-                     mock_data.sequence_id, 
-                     mock_data.timestamp_ms);
+        // --- Dispatch Follower Data ---
+        follower_data.sequence_id++;
+        follower_data.timestamp_ms = now;
+        // Mocking some movement on the follower (offset by 50)
+        for(int i = 0; i < 6; i++) follower_data.raw_positions[i] = 2048 + (i * 100) + 50; 
+        esp_now_send(gateway_mac, (uint8_t *)&follower_data, sizeof(follower_data));
+
+        // Decimated Heartbeat (Every 50 loops = 1 second)
+        if (leader_data.sequence_id % 200 == 0) {
+            ESP_LOGI(TAG, "Heartbeat: Interleaved Packets (ID: %" PRIu32 ") dispatched", leader_data.sequence_id);
         }
     }
 }
