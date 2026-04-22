@@ -1,0 +1,38 @@
+services:
+  uros-agent:
+    image: microros/micro-ros-agent:jazzy
+    container_name: uros_agent
+    network_mode: host
+    privileged: true  # Grants access to host hardware devices
+    volumes:
+      - /dev:/dev     # Maps the host device tree into the container
+    restart: unless-stopped
+    command: serial --dev /dev/ttyUSB0 -b 600000 -v6
+
+  so101-viz:
+    build:
+      context: .
+      args:
+        - UID=1000
+        - GID=1000
+    container_name: so101_viz
+    network_mode: host
+    ipc: host
+    volumes:
+      - .:/home/user/so101_ws
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${XAUTHORITY:-$HOME/.Xauthority}:/home/user/.Xauthority:rw
+    environment:
+      - ROS_DOMAIN_ID=0
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    restart: unless-stopped
+    depends_on:
+      - uros-agent
+    command: >
+      bash -c "
+      source /opt/ros/jazzy/setup.bash && 
+      cd /home/user/so101_ws && 
+      colcon build --symlink-install --packages-select so101_description && 
+      source install/setup.bash && 
+      ros2 launch so101_description viz.launch.py"

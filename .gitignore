@@ -45,3 +45,22 @@ __pycache__/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+
+
+# --- General Build Artifacts ---
+**/build/
+**/install/
+**/log/
+
+# --- ROS 2 / TF2 Diagnostic Exports ---
+frames_*.gv
+frames_*.pdf
+
+# --- Python Bytecode ---
+**/__pycache__/
+*.pyc
+
+# --- ESP-IDF Specific (if not already present) ---
+sdkconfig.old
+**/managed_components/
