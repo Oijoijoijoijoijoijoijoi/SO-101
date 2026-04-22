@@ -38,7 +38,7 @@ RUN if getent passwd $USER_UID > /dev/null; then \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
-# 4. ESP-IDF Toolchain Layer
+# 4. ESP-IDF Toolchain Lgit config --get remote.origin.fetchayer
 ENV IDF_PATH=/opt/esp/idf
 RUN mkdir -p /opt/esp && chown $USERNAME:$USERNAME /opt/esp
 
