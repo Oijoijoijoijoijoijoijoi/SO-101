@@ -1,0 +1,10 @@
+{
+  "leader": {
+    "topic": "/leader/joint_states",
+    "joints": ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "trigger"]
+  },
+  "follower": {
+    "topic": "/follower/joint_states",
+    "joints": ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
+  }
+}

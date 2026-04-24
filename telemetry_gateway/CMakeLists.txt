@@ -5,3 +5,6 @@ set(EXTRA_COMPONENT_DIRS
 )
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(telemetry_gateway)
+
+# Generate and flash the filesystem to the Gateway ESP32
+littlefs_create_partition_image(storage littlefs_storage FLASH_IN_PROJECT)
