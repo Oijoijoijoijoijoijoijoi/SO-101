@@ -1,0 +1,22 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 1. Install only necessary Electron/X11 runtime libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates jq \
+    libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
+    libcups2 libdrm2 libgtk-3-0 libgbm1 libasound2t64 \
+    libxshmfence1 x11-apps \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Fetch Foxglove binary
+RUN LATEST_URL=$(curl -s https://api.github.com/repos/foxglove/studio/releases/latest | \
+    jq -r '.assets[] | select(.name | contains("amd64.deb")) | .browser_download_url') && \
+    curl -L "$LATEST_URL" -o /tmp/foxglove.deb && \
+    apt-get update && apt-get install -y /tmp/foxglove.deb && \
+    rm /tmp/foxglove.deb
+
+# 3. Entrypoint: Launch Foxglove directly
+# No Xvfb, No fluxbox, No VNC.
+CMD ["foxglove-studio", "--no-sandbox"]

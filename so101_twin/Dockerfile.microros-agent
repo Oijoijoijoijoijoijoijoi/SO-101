@@ -1,0 +1,15 @@
+FROM microros/micro-ros-agent:jazzy
+
+# 1. Install Essential Serial Debugging Tools
+# These allow you to 'exec' into the container and see what the ESP32 is screaming
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    minicom \
+    screen \
+    python3-pip \
+    python3-setuptools \
+    && pip3 install --upgrade --ignore-installed esptool --break-system-packages \
+    && rm -rf /var/lib/apt/lists
+
+WORKDIR /uros_ws
+

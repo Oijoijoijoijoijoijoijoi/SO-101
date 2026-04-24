@@ -1,0 +1,33 @@
+FROM ros:jazzy-ros-base
+
+# 1. Permission Alignment
+ARG UNAME=user
+ARG UID=1000
+ARG GID=1000
+
+RUN groupadd -g ${GID} -o ${UNAME} \
+    && useradd -m -u ${UID} -g ${GID} -o -s /bin/bash ${UNAME} \
+    && apt-get update && apt-get install -y sudo \
+    && echo "${UNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# 2. Headless Robotic Logic Stack
+# Removed: joint-state-publisher-gui (Hardware provides states)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-jazzy-foxglove-bridge \
+    ros-jazzy-robot-state-publisher \
+    ros-jazzy-joint-state-publisher-gui \
+    ros-jazzy-tf2-ros \
+    ros-jazzy-xacro \
+    python3-colcon-common-extensions \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+USER ${UNAME}
+WORKDIR /home/${UNAME}/so101_ws
+
+# 3. Environment Persistence
+RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc \
+    && echo "if [ -f /home/${UNAME}/so101_ws/install/setup.bash ]; then source /home/${UNAME}/so101_ws/install/setup.bash; fi" >> ~/.bashrc
+
+# 4. Entrypoint logic is handled via Docker Compose command to allow flexibility
+CMD ["/bin/bash"]
