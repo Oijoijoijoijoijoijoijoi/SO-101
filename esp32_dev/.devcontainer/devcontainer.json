@@ -1,7 +1,15 @@
 {
     "name": "SO-101 ESP32 Jazzy Hub",
-    "build": { "dockerfile": "Dockerfile" },
+    "build": { 
+        "dockerfile": "Dockerfile",
+        "context": ".." 
+    },
     "runArgs": [ "--privileged", "--network=host" ],
+    
+    // Binds the entire SO-101 root to satisfy Git and Shared Component dependencies
+    "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces/SO-101,type=bind",
+    "workspaceFolder": "/workspaces/SO-101/esp32_dev",
+
     "mounts": [
         "source=/dev,target=/dev,type=bind",
         "source=esp32-bash-history,target=/home/vscode/command_history,type=volume"
@@ -12,15 +20,16 @@
                 "terminal.integrated.defaultProfile.linux": "bash",
                 "idf.espIdfPath": "/opt/esp/idf",
                 "idf.toolsPath": "/home/vscode/.espressif",
-                "idf.pythonBinPath": "/home/vscode/.espressif/python_env/idf5.3_py3.10_env/bin/python",
+                // SYNCED: Updated to Python 3.12 per container logs
+                "idf.pythonBinPath": "/home/vscode/.espressif/python_env/idf5.3_py3.12_env/bin/python",
                 "terminal.integrated.env.linux": {
-                    "PYTHONPATH": "/opt/ros/jazzy/lib/python3.11/site-packages"
+                    "PYTHONPATH": "/opt/ros/jazzy/lib/python3.12/site-packages"
                 },
                 "C_Cpp.default.includePath": [
                     "${workspaceFolder}/**",
                     "/opt/esp/idf/components/**",
-                    // Path to generated headers in the project build folder
-                    "${workspaceFolder}/**/build/muros_include/**"
+                    // Mapping to the project-specific build artifacts
+                    "/workspaces/SO-101/esp32_dev/**/build/muros_include/**"
                 ]
             },
             "extensions": [

@@ -63,4 +63,4 @@ frames_*.pdf
 
 # --- ESP-IDF Specific (if not already present) ---
 sdkconfig.old
-**/managed_components/
+**/managed_components/**/secrets.h

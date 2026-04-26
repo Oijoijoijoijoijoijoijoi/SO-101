@@ -1,5 +1,5 @@
 [submodule "shared_components/micro_ros_espidf_component"]
-	path = shared_components/micro_ros_espidf_component
+	path = esp32_dev/shared_components/micro_ros_espidf_component
 	url = https://github.com/Oijoijoijoijoijoijoijoi/micro_ros_espidf_component.git
 	ignore = untracked
 	branch = jazzy-custom-espnow
