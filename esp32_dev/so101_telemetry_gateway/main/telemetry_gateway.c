@@ -17,15 +17,12 @@
 #include <sensor_msgs/msg/joint_state.h>
 #include <rmw_microros/rmw_microros.h>
 
-/* Macro to safely absorb warn_unused_result attributes */
 #define IGNORE_RET(x) do { rcl_ret_t _rc = (x); (void)_rc; } while(0)
-
 static const int uart_port = UART_NUM_0;
 
 /* --- ROS 2 Global Entities --- */
 static rcl_publisher_t leader_pub;
 static rcl_publisher_t follower_pub;
-
 static sensor_msgs__msg__JointState leader_msg;
 static sensor_msgs__msg__JointState follower_msg;
 static char leader_topic[64];
@@ -42,7 +39,7 @@ static rcl_allocator_t allocator;
 
 typedef enum { WAITING_AGENT, AGENT_AVAILABLE, AGENT_CONNECTED, AGENT_DISCONNECTED } agent_state_t;
 
-/* --- Transport Layer --- */
+/* --- Custom Transport (UART) --- */
 bool transport_open(struct uxrCustomTransport * transport) {
     uart_config_t uart_config = {
         .baud_rate = 921600, 
@@ -67,9 +64,10 @@ size_t transport_read(struct uxrCustomTransport* transport, uint8_t* buf, size_t
     return (rxBytes >= 0) ? rxBytes : 0;
 }
 
-/* --- ESP-NOW Receiver --- */
+/* --- ESP-NOW Receiver (Refactored for Dual Struct) --- */
 static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
-    if (len == sizeof(telemetry_data_t)) {
+    // Length check must now match the DUAL struct
+    if (len == sizeof(dual_telemetry_t)) {
         xQueueSend(telemetry_queue, data, 0);
     }
 }
@@ -103,15 +101,12 @@ void init_kinematics_from_json(void) {
         .base_path = "/storage",
         .partition_label = "storage",
         .format_if_mount_failed = false,
-        .dont_mount = false  // Corrected member name
+        .dont_mount = false
     };
     ESP_ERROR_CHECK(esp_vfs_littlefs_register(&conf));
 
     FILE* f = fopen("/storage/robot-joints.json", "r");
-    if (!f) {
-        ESP_LOGE("FS", "Failed to open /storage/robot-joints.json");
-        return;
-    }
+    if (!f) return;
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);
@@ -121,21 +116,14 @@ void init_kinematics_from_json(void) {
     data[fsize] = 0;
 
     cJSON *root = cJSON_Parse(data);
-    if (!root) {
-        ESP_LOGE("FS", "JSON Parse Error");
-        free(data);
-        return;
+    if (root) {
+        populate_entity_msg(cJSON_GetObjectItem(root, "leader"), &leader_msg, leader_topic);
+        populate_entity_msg(cJSON_GetObjectItem(root, "follower"), &follower_msg, follower_topic);
+        cJSON_Delete(root);
     }
-
-    populate_entity_msg(cJSON_GetObjectItem(root, "leader"), &leader_msg, leader_topic);
-    populate_entity_msg(cJSON_GetObjectItem(root, "follower"), &follower_msg, follower_topic);
-
-    cJSON_Delete(root);
     free(data);
-    ESP_LOGI("FS", "Kinematic metadata loaded and buffers allocated.");
 }
 
-/* --- Lifecycle Management --- */
 void teardown_microros() {
     IGNORE_RET(rcl_publisher_fini(&leader_pub, &node));
     IGNORE_RET(rcl_publisher_fini(&follower_pub, &node));
@@ -143,19 +131,17 @@ void teardown_microros() {
     (void) rclc_support_fini(&support);
 }
 
+/* --- Micro-ROS Task (Refactored for Dual Processing) --- */
 void microros_task(void * arg) {
     allocator = rcl_get_default_allocator();
     agent_state_t state = WAITING_AGENT;
-    telemetry_data_t raw_data;
+    dual_telemetry_t bundled_data; // Using the dual struct
 
     while(1) {
         switch(state) {
             case WAITING_AGENT:
-                if (rmw_uros_ping_agent(100, 1) == RCL_RET_OK) {
-                    state = AGENT_AVAILABLE;
-                } else {
-                    vTaskDelay(pdMS_TO_TICKS(500));
-                }
+                if (rmw_uros_ping_agent(100, 1) == RCL_RET_OK) state = AGENT_AVAILABLE;
+                else vTaskDelay(pdMS_TO_TICKS(500));
                 break;
 
             case AGENT_AVAILABLE: {
@@ -171,38 +157,43 @@ void microros_task(void * arg) {
                                 ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState), leader_topic));
                         IGNORE_RET(rclc_publisher_init_default(&follower_pub, &node, 
                                 ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState), follower_topic));
-                        
-                        // Force clock synchronization with host
                         rmw_uros_sync_session(1000);
                         state = AGENT_CONNECTED;
-                    } else {
-                        state = WAITING_AGENT;
-                    }
-                } else {
-                    state = WAITING_AGENT;
-                }
+                    } else state = WAITING_AGENT;
+                } else state = WAITING_AGENT;
                 IGNORE_RET(rcl_init_options_fini(&init_options));
                 break;
             }
 
             case AGENT_CONNECTED:
-                if (xQueueReceive(telemetry_queue, &raw_data, pdMS_TO_TICKS(100))) {
-                    sensor_msgs__msg__JointState *active_msg = (raw_data.origin_id == SOURCE_LEADER) ? &leader_msg : &follower_msg;
-                    rcl_publisher_t *active_pub = (raw_data.origin_id == SOURCE_LEADER) ? &leader_pub : &follower_pub;
-
-                    int64_t ns = rmw_uros_epoch_nanos();
-                    active_msg->header.stamp.sec = (int32_t)(ns / 1000000000);
-                    active_msg->header.stamp.nanosec = (uint32_t)(ns % 1000000000);
+                // Receive the bundled dual struct from the queue
+                if (xQueueReceive(telemetry_queue, &bundled_data, pdMS_TO_TICKS(10))) {
                     
-                    active_msg->header.frame_id.data = (char*)((raw_data.origin_id == SOURCE_LEADER) ? "leader_base" : "follower_base");
-                    active_msg->header.frame_id.size = strlen(active_msg->header.frame_id.data);
-                    active_msg->header.frame_id.capacity = active_msg->header.frame_id.size + 1;
+                    // Capture a single timestamp for both messages to ensure sync
+                    int64_t ns = rmw_uros_epoch_nanos();
+                    int32_t sec = (int32_t)(ns / 1000000000);
+                    uint32_t nanosec = (uint32_t)(ns % 1000000000);
 
-                    for (int i = 0; i < NUM_JOINTS; i++) {
-                        active_msg->position.data[i] = (double)((int32_t)raw_data.raw_positions[i] - 2048) * (2.0 * M_PI / 4096.0);
+                    // Unpack and publish both entities
+                    telemetry_data_t *parts[2] = { &bundled_data.leader, &bundled_data.follower };
+                    sensor_msgs__msg__JointState *msgs[2] = { &leader_msg, &follower_msg };
+                    rcl_publisher_t *pubs[2] = { &leader_pub, &follower_pub };
+                    const char* frames[2] = { "leader_base", "follower_base" };
+
+                    for (int i = 0; i < 2; i++) {
+                        msgs[i]->header.stamp.sec = sec;
+                        msgs[i]->header.stamp.nanosec = nanosec;
+                        
+                        msgs[i]->header.frame_id.data = (char*)frames[i];
+                        msgs[i]->header.frame_id.size = strlen(frames[i]);
+                        msgs[i]->header.frame_id.capacity = msgs[i]->header.frame_id.size + 1;
+
+                        for (int j = 0; j < NUM_JOINTS; j++) {
+                            // Kinematic Mapping: (Raw - Center) * RadianScale
+                            msgs[i]->position.data[j] = (double)((int32_t)parts[i]->raw_positions[j] - 2048) * (2.0 * M_PI / 4096.0);
+                        }
+                        IGNORE_RET(rcl_publish(pubs[i], msgs[i], NULL));
                     }
-
-                    IGNORE_RET(rcl_publish(active_pub, active_msg, NULL));
                 } else {
                     if (rmw_uros_ping_agent(50, 1) != RCL_RET_OK) state = AGENT_DISCONNECTED;
                 }
@@ -232,12 +223,12 @@ void init_wifi_espnow(void) {
 
 void app_main(void) {
     esp_log_level_set("*", ESP_LOG_NONE); 
-    
-    // VFS MUST be mounted before FreeRTOS task scheduling begins
     init_kinematics_from_json();
 
     rmw_uros_set_custom_transport(true, NULL, transport_open, transport_close, transport_write, transport_read);
-    telemetry_queue = xQueueCreate(40, sizeof(telemetry_data_t));
+    
+    telemetry_queue = xQueueCreate(30, sizeof(dual_telemetry_t));
+    
     init_wifi_espnow();
     xTaskCreatePinnedToCore(microros_task, "uros_task", 12288, NULL, 5, NULL, 1);
 }
